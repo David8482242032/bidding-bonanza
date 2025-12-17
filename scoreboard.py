@@ -8,7 +8,6 @@ st.set_page_config(page_title="Executive Benefits Portal", layout="wide")
 
 st.markdown("""
     <style>
-    /* Animated Gradient Background */
     .stApp {
         background: linear-gradient(-45deg, #0f172a, #1e293b, #334155);
         background-size: 400% 400%;
@@ -18,7 +17,6 @@ st.markdown("""
     }
     @keyframes gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
     
-    /* Elegant Frosted Cards */
     .glass-card {
         background: rgba(255, 255, 255, 0.05);
         backdrop-filter: blur(10px);
@@ -35,34 +33,44 @@ st.markdown("""
     }
 
     .name-text { font-size: 20px; font-weight: 500; color: #f8fafc; }
-    .time-text { font-size: 24px; font-weight: 700; color: #fbbf24; }
-    .title-text { text-align: center; font-size: 50px; font-weight: 800; color: #ffffff; }
+    .points-text { font-size: 24px; font-weight: 700; color: #fbbf24; }
+    .title-text { text-align: center; font-size: 50px; font-weight: 800; color: #ffffff; padding: 20px; }
 
-    /* Progress Bar Styling */
-    .progress-bg { background: rgba(255, 255, 255, 0.1); border-radius: 10px; height: 6px; margin-top: 12px; overflow: hidden; }
+    /* Number Badge Styling */
+    .rank-badge {
+        background: #fbbf24;
+        color: #0f172a;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 14px;
+        margin-right: -10px;
+        z-index: 2;
+        border: 2px solid #0f172a;
+    }
+
+    .progress-bg { background: rgba(255, 255, 255, 0.1); border-radius: 10px; height: 8px; margin-top: 12px; overflow: hidden; }
     .progress-fill { background: #b76e79; height: 100%; border-radius: 10px; transition: width 0.5s ease-in-out; }
-
-    /* Buttons */
-    div.stButton > button { border-radius: 8px !important; font-weight: 700 !important; height: 45px; }
-    div[data-testid="stHorizontalBlock"] div:nth-child(1) button { background: #10b981 !important; color: white !important; }
-    div[data-testid="stHorizontalBlock"] div:nth-child(2) button { background: #ef4444 !important; color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- DATA ENGINE ---
-DB_FILE = "hours_data.csv"
+DB_FILE = "office_points.csv"
 NAMES = ["Devoiry Fettman", "Rivky Katz", "Shana Klein", "Rachel Blumenfeld", 
          "Rachel Heimfeld", "Miriam Gutman", "Etti gottieb", "Miriam Meisels"]
 
 if not os.path.exists(DB_FILE):
-    pd.DataFrame({"Name": NAMES, "Total Minutes": [0.0]*8}).to_csv(DB_FILE, index=False)
+    pd.DataFrame({"Name": NAMES, "Total Points": [0.0]*len(NAMES)}).to_csv(DB_FILE, index=False)
 
-def update_db(name, h, m, mode):
+def update_db(name, pts, mode):
     df = pd.read_csv(DB_FILE)
-    delta = (h * 60) + m
-    if mode == "add": df.loc[df['Name'] == name, 'Total Minutes'] += delta
-    else: df.loc[df['Name'] == name, 'Total Minutes'] -= delta
-    df.loc[df['Total Minutes'] < 0, 'Total Minutes'] = 0
+    if mode == "add": df.loc[df['Name'] == name, 'Total Points'] += pts
+    else: df.loc[df['Name'] == name, 'Total Points'] -= pts
+    df.loc[df['Total Points'] < 0, 'Total Points'] = 0
     df.to_csv(DB_FILE, index=False)
 
 # --- USER INTERFACE ---
@@ -71,46 +79,51 @@ st.markdown('<div class="title-text">🔥 Bidding Bonanza 🔥</div>', unsafe_al
 col_input, col_board = st.columns([1, 1.4], gap="large")
 
 with col_input:
-    st.markdown("### 🕒 LOG ACTIVITY")
+    st.markdown("### 🏆 LOG ACTIVITY")
     with st.container(border=True):
         user = st.selectbox("Select Employee", NAMES)
-        c1, c2 = st.columns(2)
-        h_in = c1.number_input("Hours", min_value=0, step=1)
-        m_in = c2.number_input("Minutes", min_value=0, max_value=59, step=1)
+        pts_in = st.number_input("Points", min_value=0, step=1)
         st.write("")
         b1, b2 = st.columns(2)
-        if b1.button("➕ LOG HOURS", use_container_width=True):
-            update_db(user, h_in, m_in, "add")
-            st.balloons(); st.snow(); st.toast(f"Wow! 🔥 Added time for {user}! 🔥", icon="🎉")
-            time.sleep(1.5); st.rerun()
+        if b1.button("➕ ADD POINTS", use_container_width=True):
+            update_db(user, pts_in, "add")
+            st.balloons(); st.toast(f"Points added for {user}!"); time.sleep(1); st.rerun()
         if b2.button("🛍️ REDEEM BID", use_container_width=True):
-            update_db(user, h_in, m_in, "sub")
+            update_db(user, pts_in, "sub")
             st.toast(f"Points redeemed for {user}!"); time.sleep(1); st.rerun()
 
 with col_board:
-    st.markdown("### 🏆 CURRENT STANDINGS")
-    data = pd.read_csv(DB_FILE).sort_values(by="Total Minutes", ascending=False).reset_index(drop=True)
-    
-    # Get Max Minutes for the progress line calculation
-    max_mins = data['Total Minutes'].max() if data['Total Minutes'].max() > 0 else 1
+    st.markdown("### 🏆 RANKINGS 1-8")
+    data = pd.read_csv(DB_FILE).sort_values(by="Total Points", ascending=False).reset_index(drop=True)
+    max_pts = data['Total Points'].max() if data['Total Points'].max() > 0 else 1
     
     for rank, row in data.iterrows():
-        emoji = "👑" if rank == 0 else "🥈" if rank == 1 else "🥉" if rank == 2 else "💻"
-        is_leader = (rank == 0 and row['Total Minutes'] > 0)
-        card_class = "glass-card leader-highlight" if is_leader else "glass-card"
-        m = row['Total Minutes']
+        rank_num = rank + 1  # 1 through 8
         
-        # Calculate how far they are from the leader
-        progress_pct = (m / max_mins) * 100
+        # Determine trophy color/style based on rank
+        if rank_num == 1:
+            trophy = "🥇"
+        elif rank_num == 2:
+            trophy = "🥈"
+        elif rank_num == 3:
+            trophy = "🥉"
+        else:
+            trophy = "🏆"
+
+        is_leader = (rank == 0 and row['Total Points'] > 0)
+        card_class = "glass-card leader-highlight" if is_leader else "glass-card"
+        pts = row['Total Points']
+        progress_pct = (pts / max_pts) * 100
         
         st.markdown(f"""
             <div class="{card_class}">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <span style="font-size: 24px;">{emoji}</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="rank-badge">{rank_num}</div>
+                        <span style="font-size: 32px;">{trophy}</span>
                         <span class="name-text">{row['Name']}</span>
                     </div>
-                    <div class="time-text">{int(m//60)}h {int(m%60)}m</div>
+                    <div class="points-text">{int(pts)} Points</div>
                 </div>
                 <div class="progress-bg">
                     <div class="progress-fill" style="width: {progress_pct}%;"></div>

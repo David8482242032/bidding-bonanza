@@ -36,7 +36,6 @@ st.markdown("""
     .points-text { font-size: 24px; font-weight: 700; color: #fbbf24; }
     .title-text { text-align: center; font-size: 50px; font-weight: 800; color: #ffffff; padding: 20px; }
 
-    /* Number Badge Styling */
     .rank-badge {
         background: #fbbf24;
         color: #0f172a;
@@ -62,6 +61,7 @@ st.markdown("""
 DB_FILE = "office_points.csv"
 NAMES = ["Devoiry Fettman", "Rivky Katz", "Shana Klein", "Rachel Blumenfeld", 
          "Rachel Heimfeld", "Miriam Gutman", "Etti gottieb", "Miriam Meisels"]
+SECRET_CODE = "points"  # <--- YOUR ACCESS CODE
 
 if not os.path.exists(DB_FILE):
     pd.DataFrame({"Name": NAMES, "Total Points": [0.0]*len(NAMES)}).to_csv(DB_FILE, index=False)
@@ -83,14 +83,26 @@ with col_input:
     with st.container(border=True):
         user = st.selectbox("Select Employee", NAMES)
         pts_in = st.number_input("Points", min_value=0, step=1)
+        
+        # --- NEW CODE PROTECTION FIELD ---
+        input_code = st.text_input("Enter Admin Code to Save", type="password")
+        
         st.write("")
         b1, b2 = st.columns(2)
+        
         if b1.button("➕ ADD POINTS", use_container_width=True):
-            update_db(user, pts_in, "add")
-            st.balloons(); st.toast(f"Points added for {user}!"); time.sleep(1); st.rerun()
+            if input_code == SECRET_CODE:
+                update_db(user, pts_in, "add")
+                st.balloons(); st.toast(f"Points added for {user}!"); time.sleep(1); st.rerun()
+            else:
+                st.error("Incorrect Admin Code!")
+
         if b2.button("🛍️ REDEEM BID", use_container_width=True):
-            update_db(user, pts_in, "sub")
-            st.toast(f"Points redeemed for {user}!"); time.sleep(1); st.rerun()
+            if input_code == SECRET_CODE:
+                update_db(user, pts_in, "sub")
+                st.toast(f"Points redeemed for {user}!"); time.sleep(1); st.rerun()
+            else:
+                st.error("Incorrect Admin Code!")
 
 with col_board:
     st.markdown("### 🏆 RANKINGS 1-8")
@@ -98,17 +110,8 @@ with col_board:
     max_pts = data['Total Points'].max() if data['Total Points'].max() > 0 else 1
     
     for rank, row in data.iterrows():
-        rank_num = rank + 1  # 1 through 8
-        
-        # Determine trophy color/style based on rank
-        if rank_num == 1:
-            trophy = "🥇"
-        elif rank_num == 2:
-            trophy = "🥈"
-        elif rank_num == 3:
-            trophy = "🥉"
-        else:
-            trophy = "🏆"
+        rank_num = rank + 1
+        trophy = "🥇" if rank_num == 1 else "🥈" if rank_num == 2 else "🥉" if rank_num == 3 else "🏆"
 
         is_leader = (rank == 0 and row['Total Points'] > 0)
         card_class = "glass-card leader-highlight" if is_leader else "glass-card"

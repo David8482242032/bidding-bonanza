@@ -24,18 +24,15 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATA LOADING (ANTI-RESET) ---
+# --- DATA LOADING ---
 if 'df' not in st.session_state:
     try:
-        # Pulls the most recent points from your Google Sheet link
         st.session_state.df = pd.read_csv(SHEET_URL)
     except:
-        # Fallback if the link fails
         NAMES = ["Devoiry Fettman", "Rivky Katz", "Shana Klein", "Rachel Blumenfeld", 
                  "Rachel Heimfeld", "Miriam Gutman", "Etti gottieb", "Miriam Meisels"]
         st.session_state.df = pd.DataFrame({"Name": NAMES, "Total Points": [0.0]*len(NAMES)})
 
-# --- UI ---
 st.markdown('<div class="title-text">🔥 Bidding Bonanza 🔥</div>', unsafe_allow_html=True)
 
 col_input, col_board = st.columns([1, 1.4], gap="large")
@@ -51,20 +48,25 @@ with col_input:
         if b1.button("➕ ADD POINTS", use_container_width=True):
             if input_code == SECRET_CODE:
                 st.session_state.df.loc[st.session_state.df['Name'] == user, 'Total Points'] += pts_in
-                st.toast("Success!"); time.sleep(1); st.rerun()
+                # --- VISUAL EFFECTS ---
+                st.balloons()
+                st.snow()
+                st.toast(f"Points added for {user}!")
+                time.sleep(1.5)  # Wait for effects to be seen before rerun
+                st.rerun()
             else: st.error("Wrong Code")
 
         if b2.button("🛍️ REDEEM BID", use_container_width=True):
             if input_code == SECRET_CODE:
                 st.session_state.df.loc[st.session_state.df['Name'] == user, 'Total Points'] -= pts_in
                 st.session_state.df.loc[st.session_state.df['Total Points'] < 0, 'Total Points'] = 0
-                st.toast("Redeemed!"); time.sleep(1); st.rerun()
+                st.toast("Redeemed!")
+                time.sleep(0.5)
+                st.rerun()
             else: st.error("Wrong Code")
     
-    # --- PERMANENT BACKUP ---
     st.write("---")
     st.markdown("#### 💾 Save Progress")
-    st.caption("Google Sheets links are 'Read-Only'. To ensure points are saved forever, click below to download a backup file.")
     csv_data = st.session_state.df.to_csv(index=False).encode('utf-8')
     st.download_button("📥 DOWNLOAD BACKUP CSV", data=csv_data, file_name="bidding_backup.csv", mime="text/csv")
     
@@ -74,7 +76,6 @@ with col_input:
 
 with col_board:
     st.markdown("### 🏆 RANKINGS 1-8")
-    # Sort data for the leaderboard
     data = st.session_state.df.sort_values(by="Total Points", ascending=False).reset_index(drop=True)
     max_pts = data['Total Points'].max() if data['Total Points'].max() > 0 else 1
     

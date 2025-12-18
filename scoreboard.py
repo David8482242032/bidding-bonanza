@@ -1,15 +1,11 @@
 import streamlit as st
 import pandas as pd
-from streamlit_gsheets import GSheetsConnection
+import os
 import time
 
-# --- CONFIG ---
+# --- FORMAL & FEMININE OFFICE AESTHETIC ---
 st.set_page_config(page_title="Executive Benefits Portal", layout="wide")
 
-# The secret code is now secure in Streamlit Secrets, not hardcoded.
-SECRET_CODE = "points" 
-
-# --- STYLE ---
 st.markdown("""
     <style>
     .stApp {
@@ -61,28 +57,21 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- DATA ENGINE ---
+DB_FILE = "office_points.csv"
+NAMES = ["Devoiry Fettman", "Rivky Katz", "Shana Klein", "Rachel Blumenfeld", 
+         "Rachel Heimfeld", "Miriam Gutman", "Etti gottieb", "Miriam Meisels"]
+SECRET_CODE = "points"  # <--- YOUR ACCESS CODE
 
-# --- DATA LOADING & PERSISTENCE (LIVE SYNC) ---
-# Connect using the secrets configured in Streamlit Cloud
-conn = st.connection("gsheets", type=GSheetsConnection, spreadsheet="1wJ5cTvW6-H3w83wk81mu4SBpi5fSoBBQeMjd5DYjQnE")
+if not os.path.exists(DB_FILE):
+    pd.DataFrame({"Name": NAMES, "Total Points": [0.0]*len(NAMES)}).to_csv(DB_FILE, index=False)
 
-def load_data():
-    # Use conn.read() with ttl=0 to always fetch the latest data from the sheet
-    df = conn.read(ttl=0, worksheet="Sheet1") 
-    # Ensure 'Total Points' column exists and is numeric
-    if 'Total Points' not in df.columns:
-        df['Total Points'] = 0.0
-    df['Total Points'] = pd.to_numeric(df['Total Points'], errors='coerce').fillna(0).astype(float)
-    return df
-
-def save_data(df_to_save):
-    # Use conn.update() to write changes back to the actual Google Sheet permanently
-    conn.update(worksheet="Sheet1", data=df_to_save) 
-    st.toast("Data Synced with Google Sheets!")
-
-if 'df' not in st.session_state:
-    st.session_state.df = load_data()
-
+def update_db(name, pts, mode):
+    df = pd.read_csv(DB_FILE)
+    if mode == "add": df.loc[df['Name'] == name, 'Total Points'] += pts
+    else: df.loc[df['Name'] == name, 'Total Points'] -= pts
+    df.loc[df['Total Points'] < 0, 'Total Points'] = 0
+    df.to_csv(DB_FILE, index=False)
 
 # --- USER INTERFACE ---
 st.markdown('<div class="title-text">🔥 Bidding Bonanza 🔥</div>', unsafe_allow_html=True)
@@ -92,41 +81,45 @@ col_input, col_board = st.columns([1, 1.4], gap="large")
 with col_input:
     st.markdown("### 🏆 LOG ACTIVITY")
     with st.container(border=True):
-        user = st.selectbox("Select Employee", st.session_state.df['Name'].tolist())
+        user = st.selectbox("Select Employee", NAMES)
         pts_in = st.number_input("Points", min_value=0, step=1)
-        input_code = st.text_input("Enter Admin Code", type="password")
         
+        # --- NEW CODE PROTECTION FIELD ---
+        input_code = st.text_input("Enter Admin Code to Save", type="password")
+        
+        st.write("")
         b1, b2 = st.columns(2)
+        
         if b1.button("➕ ADD POINTS", use_container_width=True):
             if input_code == SECRET_CODE:
-                st.session_state.df.loc[st.session_state.df['Name'] == user, 'Total Points'] += pts_in
-                save_data(st.session_state.df) # <--- Writes back to Google Sheet
-                st.balloons(); st.snow(); time.sleep(1.5); st.rerun()
-            else: st.error("Wrong Code")
+                update_db(user, pts_in, "add")
+                st.balloons(); st.toast(f"Points added for {user}!"); time.sleep(1); st.rerun()
+            else:
+                st.error("Incorrect Admin Code!")
 
         if b2.button("🛍️ REDEEM BID", use_container_width=True):
             if input_code == SECRET_CODE:
-                st.session_state.df.loc[st.session_state.df['Name'] == user, 'Total Points'] -= pts_in
-                st.session_state.df.loc[st.session_state.df['Total Points'] < 0, 'Total Points'] = 0
-                save_data(st.session_state.df) # <--- Writes back to Google Sheet
-                st.toast("Redeemed!"); time.sleep(0.5); st.rerun()
-            else: st.error("Wrong Code")
-    
-    st.write("---")
-    st.caption("All updates are saved live to your Google Sheet.")
+                update_db(user, pts_in, "sub")
+                st.toast(f"Points redeemed for {user}!"); time.sleep(1); st.rerun()
+            else:
+                st.error("Incorrect Admin Code!")
 
 with col_board:
     st.markdown("### 🏆 RANKINGS 1-8")
-    data = st.session_state.df.sort_values(by="Total Points", ascending=False).reset_index(drop=True)
+    data = pd.read_csv(DB_FILE).sort_values(by="Total Points", ascending=False).reset_index(drop=True)
     max_pts = data['Total Points'].max() if data['Total Points'].max() > 0 else 1
     
     for rank, row in data.iterrows():
         rank_num = rank + 1
         trophy = "🥇" if rank_num == 1 else "🥈" if rank_num == 2 else "🥉" if rank_num == 3 else "🏆"
+
+        is_leader = (rank == 0 and row['Total Points'] > 0)
+        card_class = "glass-card leader-highlight" if is_leader else "glass-card"
         pts = row['Total Points']
+        progress_pct = (pts / max_pts) * 100
         
         st.markdown(f"""
-            <div class="glass-card {'leader-highlight' if rank==0 and pts>0 else ''}">
+            <div class="{card_class}">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="rank-badge">{rank_num}</div>
@@ -135,7 +128,9 @@ with col_board:
                     </div>
                     <div class="points-text">{int(pts)} Points</div>
                 </div>
-                <div class="progress-bg"><div class="progress-fill" style="width: {(pts/max_pts)*100}%;"></div></div>
+                <div class="progress-bg">
+                    <div class="progress-fill" style="width: {progress_pct}%;"></div>
+                </div>
             </div>
         """, unsafe_allow_html=True)
 

@@ -1,5 +1,2 @@
 streamlit
-st-gsheets-connection
-gspread
-pandas==1.5.3
-numpy==1.23.5
+pandas

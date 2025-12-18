@@ -68,8 +68,11 @@ if not os.path.exists(DB_FILE):
 
 def update_db(name, pts, mode):
     df = pd.read_csv(DB_FILE)
-    if mode == "add": df.loc[df['Name'] == name, 'Total Points'] += pts
-    else: df.loc[df['Total Points'] < 0, 'Total Points'] = 0
+    if mode == "add":
+        df.loc[df['Name'] == name, 'Total Points'] += pts
+    elif mode == "sub":
+        df.loc[df['Name'] == name, 'Total Points'] -= pts
+    df.loc[df['Total Points'] < 0, 'Total Points'] = 0
     df.to_csv(DB_FILE, index=False)
 
 # --- USER INTERFACE ---
@@ -92,10 +95,9 @@ with col_input:
         if b1.button("➕ ADD POINTS", use_container_width=True):
             if input_code == SECRET_CODE:
                 update_db(user, pts_in, "add")
-                # ADDED: Fireworks and a big success message
+                # UPDATED VISUALS: Removed st.snow(), kept balloons and big message
                 st.balloons()
-                st.snow() # The 'fireworks' effect!
-                st.success(f"# 🎉 WOW! {pts_in} Points Added for {user}! 🎆")
+                st.success(f"# 🎉 WOW! {pts_in} Points Added for {user}! 🎊")
                 st.toast(f"Points added for {user}!");
                 time.sleep(1); st.rerun()
             else:

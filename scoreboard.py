@@ -64,7 +64,7 @@ st.markdown("""
 
 # --- DATA LOADING & PERSISTENCE (LIVE SYNC) ---
 # Connect using the secrets configured in Streamlit Cloud
-conn = st.connection("gsheets", type=GSheetsConnection)
+conn = st.connection("gsheets", type=GSheetsConnection, spreadsheet="1wJ5cTvW6-H3w83wk81mu4SBpi5fSoBBQeMjd5DYjQnE")
 
 def load_data():
     # Use conn.read() with ttl=0 to always fetch the latest data from the sheet
